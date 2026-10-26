@@ -11,13 +11,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Unzip project
+      - name: Locate project (zip or extracted)
         run: |
-          ZIP=$(ls *.zip | head -n 1)
-          echo "Using $ZIP"
-          mkdir -p project
-          unzip -q "$ZIP" -d project
-          DIR=$(dirname "$(find project -name settings.gradle.kts | head -n 1)")
+          echo "== Files in repo =="
+          find . -path ./.git -prune -o -type f -print | head -n 60
+          SETTINGS=$(find . -path ./.git -prune -o -name settings.gradle.kts -print | head -n 1)
+          if [ -z "$SETTINGS" ]; then
+            ZIP=$(find . -path ./.git -prune -o -iname "*.zip" -print | head -n 1)
+            if [ -z "$ZIP" ]; then
+              echo "::error::No zip file and no project found in the repository"
+              exit 1
+            fi
+            echo "Unzipping $ZIP"
+            mkdir -p project
+            unzip -q "$ZIP" -d project
+            SETTINGS=$(find project -name settings.gradle.kts | head -n 1)
+            if [ -z "$SETTINGS" ]; then
+              echo "::error::settings.gradle.kts not found inside the zip"
+              exit 1
+            fi
+          fi
+          DIR=$(dirname "$SETTINGS")
           echo "PROJECT_DIR=$DIR" >> "$GITHUB_ENV"
           echo "Project root: $DIR"
 
